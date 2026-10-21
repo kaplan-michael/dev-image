@@ -1,0 +1,5 @@
+*.tar
+node_modules/
+.env*
+!.env.example
+.clawk-image.*

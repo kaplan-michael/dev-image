@@ -1,0 +1,11 @@
+{
+  "config": {
+    "allow-plugins": false,
+    "cache-dir": "~/.cache/composer",
+    "policy": {
+      "cooldown": {
+        "period": "7 days"
+      }
+    }
+  }
+}
