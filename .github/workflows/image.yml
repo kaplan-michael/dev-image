@@ -1,0 +1,77 @@
+name: Fedora image
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '23 4 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.arch }})
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - run: sudo apt-get update && sudo apt-get install -y buildah podman
+      - name: Build image
+        env:
+          NO_CACHE: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
+        run: |
+          image_env=()
+          while IFS= read -r setting; do
+            case $setting in ''|\#*) continue ;; esac
+            image_env+=(--env "$setting")
+          done < config/environment.env
+          sudo buildah build --format oci --pull=always --no-cache="$NO_CACHE" \
+            "${image_env[@]}" --tag dev-image:latest --file Containerfile \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" .
+      - name: Push architecture image
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | sudo podman login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          sudo podman push --format oci dev-image:latest "docker://ghcr.io/${GITHUB_REPOSITORY,,}:latest-${ARCH}"
+
+  publish:
+    needs: build
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+    steps:
+      - run: sudo apt-get update && sudo apt-get install -y podman
+      - name: Publish multi-architecture latest
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          printf '%s' "$GHCR_TOKEN" | podman login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          podman manifest create dev-image "docker://${image}:latest-amd64" "docker://${image}:latest-arm64"
+          podman manifest push --all --format oci dev-image "docker://${image}:latest"

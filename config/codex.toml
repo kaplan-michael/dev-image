@@ -1,0 +1,7 @@
+# Image defaults; user config, trusted project config and CLI flags can override.
+model = "gpt-6.1-sol"
+model_reasoning_effort = "medium"
+
+# Microsandbox provides the isolation boundary (equivalent to codex --yolo).
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
