@@ -1,0 +1,9 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+# Register the selected snapshotter with containerd's Transfer API as well as CRI.
+# Kind's snapshotter environment setting configures CRI, but not this unpacker.
+containerdConfigPatches:
+  - |-
+    [[plugins."io.containerd.transfer.v1.local".unpack_config]]
+      platform = "linux"
+      snapshotter = "fuse-overlayfs"

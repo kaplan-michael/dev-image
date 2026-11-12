@@ -1,9 +1,11 @@
-FROM registry.fedoraproject.org/fedora:44
+FROM registry.fedoraproject.org/fedora:44@sha256:f08613fffc95f5c85c019b2f4ac9e9fb9bb84b9cfd59275671b84169567b157e
 
-# Clawk creates the agent user with the host UID/GID and grants sudo at boot.
-# This image supplies the filesystem and tools; clawk-init supplies PID 1.
-RUN dnf install -y \
-        bash sudo shadow-utils passwd ca-certificates curl wget \
+# Fedora development userspace for a Microsandbox Linux VM.
+# Microsandbox provides the guest kernel and optional PID 1 handoff.
+RUN dnf upgrade --refresh -y \
+    && dnf install -y \
+        bash bash-completion sudo shadow-utils passwd ca-certificates curl wget \
+        systemd systemd-pam dbus-broker chrony \
         golang \
         php-cli php-common php-mbstring php-xml php-intl php-pdo \
         php-mysqlnd php-pgsql php-gd php-process php-opcache php-pecl-zip composer \
@@ -11,77 +13,46 @@ RUN dnf install -y \
         git gh ripgrep fd-find jq vim-minimal nano less \
         tar gzip bzip2 xz unzip zip which findutils diffutils patch \
         gcc gcc-c++ make cmake pkgconf-pkg-config autoconf automake libtool \
-        podman buildah skopeo crun netavark aardvark-dns fuse-overlayfs \
+        podman podman-docker buildah skopeo crun netavark aardvark-dns fuse-overlayfs kubernetes-client \
         iproute iputils bind-utils nftables iptables-nft procps-ng util-linux \
-        openssh-clients sox alsa-utils \
+        openssh-clients sox alsa-utils bubblewrap \
     && dnf clean all
 
-ARG BUN_VERSION=1.4.2
-ARG KIND_VERSION=0.33.0
-RUN set -eu; \
-    dnf install -y kubernetes-client; \
-    dnf clean all; \
-    case "$(uname -m)" in \
-        x86_64) \
-            arch=amd64; bun_arch=x64-baseline; \
-            bun_sha=c678040f14fe0440eb839d37cbd0ce4c051a32da72806ac97de6a6aab6bf728f; \
-            kind_sha=aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d ;; \
-        aarch64) \
-            arch=arm64; bun_arch=aarch64; \
-            bun_sha=54328bbc2d9c8e0c9f892c544d66c57a83b84139e34909e5ee81758f1ac8fda7; \
-            kind_sha=20022bee6cfcd5086cb7234d218e3454e6090022f2a8f55d1fa7fcf42c3867a2 ;; \
-        *) echo 'Supported architectures: amd64 and arm64' >&2; exit 1 ;; \
-    esac; \
-    curl --fail --location --retry 3 \
-        "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-${bun_arch}.zip" \
-        -o /tmp/bun.zip; \
-    printf '%s  %s\n' "$bun_sha" /tmp/bun.zip | sha256sum -c -; \
-    unzip -q /tmp/bun.zip -d /tmp/bun; \
-    install -m 755 "/tmp/bun/bun-linux-${bun_arch}/bun" /usr/local/bin/bun; \
-    curl --fail --location --retry 3 \
-        "https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-linux-${arch}" \
-        -o /tmp/kind; \
-    printf '%s  %s\n' "$kind_sha" /tmp/kind | sha256sum -c -; \
-    install -m 755 /tmp/kind /usr/local/bin/kind; \
-    rm -r /tmp/bun /tmp/bun.zip /tmp/kind
+# Development user with passwordless sudo INSIDE the VM.
+# Keep OCI default user as root for system initialization.
+RUN groupadd -g 1000 dev \
+    && useradd -m -u 1000 -g dev -s /bin/bash dev \
+    && groupadd --system podman \
+    && usermod -aG podman dev \
+    && printf 'dev ALL=(ALL) NOPASSWD:ALL\n' > /etc/sudoers.d/dev \
+    && chmod 0440 /etc/sudoers.d/dev
 
-ENV PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin \
-    NPM_CONFIG_GLOBALCONFIG=/etc/npmrc \
-    KIND_EXPERIMENTAL_PROVIDER=podman \
-    COMPOSER_HOME=/etc/composer \
-    COMPOSER_SKIP_SCRIPTS=pre-install-cmd,post-install-cmd,pre-update-cmd,post-update-cmd,pre-autoload-dump,post-autoload-dump,post-root-package-install,post-create-project-cmd \
-    LANG=C.UTF-8
-
+# Native package-manager defaults, retained from the existing image.
 COPY config/npmrc /etc/npmrc
 COPY config/bunfig.toml /etc/skel/.bunfig.toml
-COPY config/bunfig.toml /root/.bunfig.toml
+COPY --chown=dev:dev config/bunfig.toml /home/dev/.bunfig.toml
 COPY config/composer.json /etc/composer/config.json
-COPY config/containers.conf /etc/containers/containers.conf.d/90-clawk.conf
 
-# Install system-wide CLIs through npm so it manages their command links.
-# These build-time installs need scripts to set up their native binaries.
-# Allow these pinned tools to be newer than the normal seven-day age window.
-ARG CLAUDE_CODE_VERSION=2.1.300
-ARG CODEX_VERSION=0.163.0
-ARG PI_VERSION=1.2.0
-ARG OPENCODE_VERSION=1.19.0
-ARG PNPM_VERSION=12.11.2
-RUN set -eu; \
-    npm install --global --ignore-scripts=false --min-release-age=0 --no-audit \
-        "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
-        "@openai/codex@${CODEX_VERSION}" \
-        "@earendil-works/pi-coding-agent@${PI_VERSION}" \
-        "opencode-ai@${OPENCODE_VERSION}" \
-        "pnpm@${PNPM_VERSION}"; \
-    claude --version; \
-    codex --version; \
-    pi --version; \
-    opencode --version; \
-    pnpm --version; \
-    npm cache clean --force
+# Version pins, verified downloads, agent installation and completion generation.
+COPY config/tools.env /usr/local/share/dev-image/tools.env
+COPY scripts/install-tools.sh /tmp/install-tools.sh
+RUN bash /tmp/install-tools.sh && rm /tmp/install-tools.sh
 
-# Composer otherwise tries to create this file even when reading global config.
-RUN printf '{}\n' > /etc/composer/auth.json
+# Runtime configuration follows tool installation to preserve the build cache.
+# Podman storage on Microsandbox's layered filesystem.
+# Keep the working FUSE setup without allocating a separate disk.
+COPY config/storage.conf /etc/containers/storage.conf
+COPY config/containers.conf /etc/containers/containers.conf
+COPY --chmod=0644 config/10-podman-socket.conf /etc/systemd/system/podman.socket.d/10-podman-socket.conf
+RUN systemctl enable podman.socket chronyd.service
+
+# Fedora's stock user dotfiles load this for login and interactive Bash.
+COPY --chmod=0644 config/environment.env /etc/dev-environment.env
+COPY --chmod=0644 config/dev-environment.sh /etc/profile.d/00-dev-environment.sh
+
+# Match the supported PID limit of the current Microsandbox kernel at boot.
+COPY --chmod=0644 config/90-microsandbox-pid-max.conf /etc/sysctl.d/90-microsandbox-pid-max.conf
+COPY --chmod=0644 config/kind.yaml /usr/local/share/dev-image/kind.yaml
 
 WORKDIR /workspace
 CMD ["/bin/bash"]
