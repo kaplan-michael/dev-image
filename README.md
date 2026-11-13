@@ -50,6 +50,30 @@ so higher-priority configuration can override them. Authentication still uses
 `codex login`; no credentials are included in the image. Existing VMs need the
 file copied into `/etc/codex/config.toml` or a new VM from the rebuilt image.
 
+## npm tools
+
+npm, pnpm and the npm-installed agents live in `/home/dev/.local`, owned by
+`dev`. Global npm installs use `~/.local` for the current user, so `dev` can
+update the preinstalled tools without sudo, including through Codex's updater:
+
+```sh
+npm install -g @openai/codex@latest
+```
+
+Launchers in `/usr/local/bin` also make the tools available to direct VM commands
+and root shells. `NPM_CONFIG_GLOBALCONFIG=/etc/npmrc` keeps the shared npm policy
+active with the user prefix. The image pins npm 11.17 or newer for
+[`min-release-age-exclude`](https://docs.npmjs.com/cli/v11/using-npm/config#min-release-age-exclude)
+support.
+
+The seven-day release delay still applies to other npm packages. Exceptions in
+`config/npmrc` cover the preinstalled agents, npm, pnpm and their companion
+packages (including platform binaries), so these can update immediately. Other
+dependencies still follow the delay. npm lifecycle scripts remain disabled by
+default; the image build explicitly enables them while installing pinned tools.
+Existing VMs need recreation from the rebuilt image or a separate migration to
+this layout.
+
 ## Containers
 
 Podman is ready to use inside the VM:
@@ -67,30 +91,13 @@ publishes to GHCR; Renovate maintains dependency pins.
 
 ## Automatic updates
 
-Pushes to `main` build amd64 and arm64 images and publish the multiarch
-`ghcr.io/<owner>/<repository>:latest` image. A weekly rebuild runs on Mondays at
+Pushes to `main` build amd64 and arm64 images and publish the multiarch image.
+A weekly rebuild runs on Mondays at
 04:23 UTC without cached layers. The image workflow can also be run manually;
 only the default branch publishes images.
-
-Install the hosted [Renovate GitHub App](https://github.com/apps/renovate) for this
-repository after pushing `renovate.json` to `main`, and complete onboarding if
-prompted. The app manages its own credentials, schedule and Renovate version;
-no Renovate Actions workflow, PAT or custom secret is needed.
 
 Renovate opens dependency update PRs, including GitHub Actions updates. PRs build
 both architectures without publishing. Renovate enables GitHub-native auto-merge
 on its PRs, so GitHub merges as soon as the required checks pass, without waiting
 for another Renovate run. The normal push to `main` then builds and publishes the
-updated image. There is no hourly PR creation limit; the default limit of 10 open
-PRs still applies. Major dependency upgrades remain disabled, and Fedora stays on 44.
-
-Before enabling this configuration on `main`, set branch protection or a ruleset
-to require `Build (amd64)` and `Build (arm64)` before merging. Enable **Require
-branches to be up to date before merging** to test updates against the latest
-`main`. Branch rules must permit Renovate to merge without a human review.
-Then enable **Settings → General → Pull Requests → Allow auto-merge**.
-GitHub-native auto-merge relies on these rules to wait for CI; without required
-checks it can merge before builds finish. See [Renovate's platform automerge
-requirements](https://docs.renovatebot.com/configuration-options/#platformautomerge).
-Actions still uses `GITHUB_TOKEN` to publish to GHCR; allow package publication
-in the repository settings.
+updated image.

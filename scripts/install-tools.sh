@@ -31,13 +31,26 @@ curl --fail --location --retry 3 \
 printf '%s  %s\n' "$kind_sha" "$download_dir/kind" | sha256sum -c -
 install -m 755 "$download_dir/kind" /usr/local/bin/kind
 
-npm install --global --ignore-scripts=false --min-release-age=0 --no-audit \
+# Bootstrap npm with release-age exception support before loading our npmrc.
+# Install as dev so both the package tree and cache remain user-writable.
+install -d -o dev -g dev /home/dev/.local
+runuser -u dev -- npm install --global --prefix /home/dev/.local \
+    --globalconfig /dev/null --ignore-scripts --no-audit \
+    "npm@${NPM_VERSION}"
+# Retain the build's script opt-in with npm's newer allowScripts policy, too.
+# Select the bootstrapped npm directly; shared environment and PATH live in config/.
+runuser -u dev -- /home/dev/.local/bin/npm install --global --ignore-scripts=false \
+    --dangerously-allow-all-scripts --min-release-age=0 --no-audit \
     "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
     "@openai/codex@${CODEX_VERSION}" \
     "@earendil-works/pi-coding-agent@${PI_VERSION}" \
     "opencode-ai@${OPENCODE_VERSION}" \
     "pnpm@${PNPM_VERSION}"
-for agent in claude codex pi opencode pnpm; do
+# Direct commands and root shells can also find the preinstalled tools.
+for tool in npm npx claude codex pi opencode pnpm pnpx; do
+    ln -s "/home/dev/.local/bin/$tool" "/usr/local/bin/$tool"
+done
+for agent in npm claude codex pi opencode pnpm; do
     "$agent" --version
 done
 
@@ -60,7 +73,7 @@ done
 printf '{}\n' > /etc/composer/auth.json
 printf '{}\n' > /etc/composer/composer.json
 
-npm cache clean --force
+runuser -u dev -- npm cache clean --force
 # Remove only the helper scratch directory created by build-time Codex checks.
 if [[ -d /root/.codex/tmp/arg0-linux ]]; then
     rm -r /root/.codex/tmp/arg0-linux

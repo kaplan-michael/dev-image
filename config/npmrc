@@ -1,4 +1,17 @@
-prefix=/usr/local
+prefix=${HOME}/.local
 ignore-scripts=true
 save-exact=true
 min-release-age=7
+# Agent releases and their companion packages can update immediately.
+min-release-age-exclude[]=@anthropic-ai/claude-code
+min-release-age-exclude[]=@anthropic-ai/claude-code-*
+min-release-age-exclude[]=@openai/codex
+min-release-age-exclude[]=@openai/codex-*
+min-release-age-exclude[]=@earendil-works/pi-*
+min-release-age-exclude[]=opencode-ai
+min-release-age-exclude[]=opencode-linux-*
+min-release-age-exclude[]=opencode-darwin-*
+min-release-age-exclude[]=opencode-windows-*
+min-release-age-exclude[]=pnpm
+min-release-age-exclude[]=@pnpm/exe.*
+min-release-age-exclude[]=npm

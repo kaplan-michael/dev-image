@@ -18,6 +18,30 @@ test:
     #!/usr/bin/env bash
     set -euo pipefail
     podman run --rm --user dev {{quote(image)}} bash -lc 'id && codex --version && claude --version && opencode --version && pi --version && bun --version && kind version'
+    # Exercise global installs and replacement without sudo or a login shell.
+    podman run --rm --user dev {{quote(image)}} bash -ec '
+        [[ $(npm config get prefix) == "$HOME/.local" ]]
+        [[ $(npm config get globalconfig) == /etc/npmrc ]]
+        [[ $(npm config get min-release-age) == 7 ]]
+        for tool in npm npx codex claude pi opencode pnpm pnpx; do
+            target=$(readlink -f "$(command -v "$tool")")
+            [[ $target == "$HOME/.local/"* && -w $target && -w $(dirname "$target") ]]
+        done
+        fixture=$(mktemp -d)
+        trap '\''rm -rf -- "$fixture"'\'' EXIT
+        cd "$fixture"
+        printf '\''{"name":"npm-prefix-smoke","version":"1.0.0","bin":{"npm-prefix-smoke":"cli.js"}}\n'\'' > package.json
+        printf '\''#!/usr/bin/env node\nconsole.log("v1")\n'\'' > cli.js
+        npm pack --quiet --ignore-scripts
+        npm install -g --no-audit --no-fund "$fixture/npm-prefix-smoke-1.0.0.tgz"
+        [[ $("$HOME/.local/bin/npm-prefix-smoke") == v1 ]]
+        printf '\''{"name":"npm-prefix-smoke","version":"2.0.0","bin":{"npm-prefix-smoke":"cli.js"}}\n'\'' > package.json
+        printf '\''#!/usr/bin/env node\nconsole.log("v2")\n'\'' > cli.js
+        npm pack --quiet --ignore-scripts
+        npm install -g --no-audit --no-fund "$fixture/npm-prefix-smoke-2.0.0.tgz"
+        [[ $("$HOME/.local/bin/npm-prefix-smoke") == v2 ]]
+        npm uninstall -g --no-audit --no-fund npm-prefix-smoke
+    '
     for user in dev root; do
         podman run --rm --user "$user" {{quote(image)}} bash -ec '
             while IFS="=" read -r name value; do
@@ -28,7 +52,7 @@ test:
         podman run --rm --user "$user" {{quote(image)}} env \
             -u CONTAINER_HOST -u DOCKER_HOST -u KIND_EXPERIMENTAL_PROVIDER \
             -u KIND_EXPERIMENTAL_CONTAINERD_SNAPSHOTTER -u COMPOSER_HOME \
-            -u COMPOSER_SKIP_SCRIPTS -u LANG -u EDITOR bash -elc '
+            -u COMPOSER_SKIP_SCRIPTS -u NPM_CONFIG_GLOBALCONFIG -u LANG -u EDITOR bash -elc '
                 set -e
                 [[ $(stat -c %a /etc/profile.d/00-dev-environment.sh) == 644 ]]
                 [[ $CONTAINER_HOST == unix:///run/podman/podman.sock ]]
@@ -37,6 +61,8 @@ test:
                 [[ $KIND_EXPERIMENTAL_CONTAINERD_SNAPSHOTTER == fuse-overlayfs ]]
                 [[ $COMPOSER_HOME == /etc/composer && $EDITOR == vi && $LANG == C.UTF-8 ]]
                 [[ -n $COMPOSER_SKIP_SCRIPTS ]]
+                [[ $NPM_CONFIG_GLOBALCONFIG == /etc/npmrc ]]
+                [[ $(npm config get prefix) == "$HOME/.local" ]]
                 [[ $(stat -c %a /etc/sysctl.d/90-microsandbox-pid-max.conf) == 644 ]]
                 grep -qx "kernel.pid_max = 4096" /etc/sysctl.d/90-microsandbox-pid-max.conf
                 test -r /usr/local/share/dev-image/kind.yaml
