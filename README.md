@@ -31,24 +31,24 @@ msb exec --user dev fedora-dev -- bash -l
 The `dev` user has passwordless sudo. Keep `--init auto` to start systemd and
 Podman. Existing VMs keep their filesystem when the image changes.
 
-## Codex defaults
+## Codex configuration
 
-Codex starts with YOLO permissions (no command approvals or Codex sandbox),
-`gpt-6.1-sol` and `medium` reasoning. Microsandbox provides VM isolation.
+The image installs Codex and its shell completions. When launched through sbx,
+Codex uses the shared configuration initialized by sbx at
+`/home/dev/.codex/config.toml`. The initial template lives in sbx's
+`config/codex.toml`; edit the shared file to change settings for your projects.
 
-Edit `config/codex.toml` to change the image defaults, installed at
-`/etc/codex/config.toml` for all users. Override them per user in
-`~/.codex/config.toml`, per trusted project in `.codex/config.toml`, or per run:
+For direct Microsandbox use, configure Codex through `~/.codex/config.toml`, a
+trusted project's `.codex/config.toml`, or command-line options:
 
 ```sh
 codex --model gpt-6.1-sol -c model_reasoning_effort=high
 codex --sandbox workspace-write --ask-for-approval on-request
 ```
 
-These are [Codex configuration defaults](https://learn.chatgpt.com/docs/config-file/config-basic),
-so higher-priority configuration can override them. Authentication still uses
-`codex login`; no credentials are included in the image. Existing VMs need the
-file copied into `/etc/codex/config.toml` or a new VM from the rebuilt image.
+See [Codex configuration](https://learn.chatgpt.com/docs/config-file/config-basic)
+for the supported settings. The image includes no Codex configuration or
+credentials. Authentication uses `codex login`.
 
 ## npm tools
 

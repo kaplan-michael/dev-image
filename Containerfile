@@ -38,10 +38,6 @@ COPY config/tools.env /usr/local/share/dev-image/tools.env
 COPY scripts/install-tools.sh /tmp/install-tools.sh
 RUN bash /tmp/install-tools.sh && rm /tmp/install-tools.sh
 
-# Runtime configuration follows tool installation to preserve the build cache.
-# Shared Codex defaults for all users; personal settings take precedence.
-COPY --chmod=0644 config/codex.toml /etc/codex/config.toml
-
 # Podman storage on Microsandbox's layered filesystem.
 # Keep the working FUSE setup without allocating a separate disk.
 COPY config/storage.conf /etc/containers/storage.conf
