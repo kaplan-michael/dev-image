@@ -13,7 +13,7 @@ RUN dnf upgrade --refresh -y \
         git gh ripgrep fd-find jq vim-minimal nano less \
         tar gzip bzip2 xz unzip zip which findutils diffutils patch \
         gcc gcc-c++ make cmake pkgconf-pkg-config autoconf automake libtool \
-        podman podman-docker buildah skopeo crun netavark aardvark-dns fuse-overlayfs kubernetes-client \
+        podman podman-docker buildah skopeo crun netavark aardvark-dns fuse-overlayfs kubernetes-client opentofu \
         iproute iputils bind-utils nftables iptables-nft procps-ng util-linux \
         openssh-clients sox alsa-utils bubblewrap \
     && dnf clean all

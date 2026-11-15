@@ -3,20 +3,30 @@
 A Fedora 44 image for Microsandbox on amd64 and arm64.
 
 Includes Codex, Claude Code, OpenCode, Pi, Go, PHP/Composer, Node.js/npm/pnpm,
-Python/uv, Rust, Zig, Bun, Git/GitHub CLI, Podman, Kind and kubectl.
+Python/uv, Rust, Zig, Bun, Git/GitHub CLI, Podman, Kind, kubectl and OpenTofu (`tofu`).
 
 ## Build
 
-Requires Podman and just.
+Requires Podman and just. These commands build for the current host architecture
+and use cached layers for fast local iteration.
 
 ```sh
 just build
-just test
-just save
+just shell
 just msb-import
 ```
 
-Run `just` to list all commands. The default image is `localhost/msb-fedora:latest`.
+Run `just` to list commands. The default local image is
+`localhost/dev-image:dev`.
+
+Override the local tag as needed:
+
+```sh
+just tag=experiment build
+```
+
+Use the same user for all commands so they share container storage. Production
+builds and multiarch publishing are handled by GitHub Actions.
 
 ## Run in Microsandbox
 
