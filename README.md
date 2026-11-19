@@ -3,7 +3,8 @@
 A Fedora 44 image for Microsandbox on amd64 and arm64.
 
 Includes Codex, Claude Code, OpenCode, Pi, Go, PHP/Composer, Node.js/npm/pnpm,
-Python/uv, Rust, Zig, Bun, Git/GitHub CLI, Podman, Kind, kubectl and OpenTofu (`tofu`).
+Python/uv, Rust, Zig, Bun, Git/GitHub CLI, Podman, Kind, kubectl, Kustomize and
+OpenTofu (`tofu`).
 
 ## Build
 
