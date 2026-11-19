@@ -15,7 +15,7 @@ RUN dnf upgrade --refresh -y \
         gcc gcc-c++ make cmake pkgconf-pkg-config autoconf automake libtool \
         podman podman-docker buildah skopeo crun netavark aardvark-dns fuse-overlayfs kubernetes-client kustomize opentofu \
         iproute iputils bind-utils nftables iptables-nft procps-ng util-linux \
-        openssh-clients sox alsa-utils bubblewrap \
+        openssh-clients sox alsa-utils bubblewrap vim \
     && dnf clean all
 
 # Development user with passwordless sudo INSIDE the VM.
