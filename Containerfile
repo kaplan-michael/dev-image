@@ -38,9 +38,7 @@ COPY config/tools.env /usr/local/share/dev-image/tools.env
 COPY scripts/install-tools.sh /tmp/install-tools.sh
 RUN bash /tmp/install-tools.sh && rm /tmp/install-tools.sh
 
-# Podman storage on Microsandbox's layered filesystem.
-# Keep the working FUSE setup without allocating a separate disk.
-COPY config/storage.conf /etc/containers/storage.conf
+# Use Fedora's native overlay defaults on the VM's dedicated Podman disk.
 COPY config/containers.conf /etc/containers/containers.conf
 COPY --chmod=0644 config/10-podman-socket.conf /etc/systemd/system/podman.socket.d/10-podman-socket.conf
 RUN systemctl enable podman.socket chronyd.service
@@ -51,7 +49,6 @@ COPY --chmod=0644 config/dev-environment.sh /etc/profile.d/00-dev-environment.sh
 
 # Match the supported PID limit of the current Microsandbox kernel at boot.
 COPY --chmod=0644 config/90-microsandbox-pid-max.conf /etc/sysctl.d/90-microsandbox-pid-max.conf
-COPY --chmod=0644 config/kind.yaml /usr/local/share/dev-image/kind.yaml
 
 WORKDIR /workspace
 CMD ["/bin/bash"]
