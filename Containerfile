@@ -1,4 +1,4 @@
-FROM registry.fedoraproject.org/fedora:44@sha256:88551ae57826f9eaeb70b9016bb54f5758cbe1a724bb731d9ec211c274f55f05
+FROM registry.fedoraproject.org/fedora:44@sha256:c2311603edaa76512f78e9edbb2b5b3903b3ad5bbc43a94ecb2e6c5c501d5f0c
 
 # Fedora development userspace for a Microsandbox Linux VM.
 # Microsandbox provides the guest kernel and optional PID 1 handoff.
